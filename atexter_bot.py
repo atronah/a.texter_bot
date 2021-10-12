@@ -109,6 +109,8 @@ def process_attachment(update: Update, context: CallbackContext):
             for part in [page_content[i:i+LENGTH_LIMIT] for i in range(0, len(page_content), LENGTH_LIMIT)]:
                 update.message.reply_text(f'Page {idx+1}\n\n{part}')
 
+        os.remove(downloaded_path)
+
 
 def error_handler(update: Update, context: CallbackContext):
     exception_info = str(context.error)
