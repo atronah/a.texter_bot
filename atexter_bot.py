@@ -1,13 +1,38 @@
 #! /usr/bin/env python3
 
+import os
+import collections
+import yaml
+from typing import Dict, Any
 import pytesseract
 from pdf2image import convert_from_path
 from telegram import Update
 from telegram.ext import Updater, CallbackContext, CommandHandler, MessageHandler, Filters
 
-TOKEN = 
+settings: Dict[str, Dict[str, Any]] = {
+    'access': {
+        'token': None,
+    },
+}
 
 
+def recursive_update(target_dict, update_dict):
+    if not isinstance(update_dict, dict):
+        return target_dict
+    for k, v in update_dict.items():
+        if isinstance(v, collections.abc.Mapping):
+            target_dict[k] = recursive_update(target_dict.get(k, {}), v)
+        else:
+            target_dict[k] = v
+    return target_dict
+
+
+if os.path.exists('conf.yaml'):
+    with open('conf.yaml', 'rt') as conf:
+        recursive_update(settings, yaml.safe_load(conf))
+else:
+    with open('conf.yml', 'wt') as conf:
+        yaml.dump(settings, conf)
 def start(update: Update, context: CallbackContext):
     update.message.reply_text('Hello. Send me your pdf')
 
@@ -28,7 +53,7 @@ def process_attachment(update: Update, context: CallbackContext):
                               f'{content}')
 
 
-updater = Updater(token=TOKEN, use_context=True)
+updater = Updater(token=settings['access']['token'], use_context=True)
 dispatcher = updater.dispatcher
 
 dispatcher.add_handler(CommandHandler('start', start))
