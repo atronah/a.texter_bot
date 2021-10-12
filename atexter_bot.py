@@ -72,12 +72,18 @@ def error_handler(update: Update, context: CallbackContext):
     context.bot.sendMessage(update.effective_chat.id, f'Internal exception: {exception_info}')
     raise context.error
 
+
+def other_messages(update: Update, context: CallbackContext):
+    update.message.reply_text("Unsupported or unauthorized. Logged.")
+
+
 updater = Updater(token=settings['access']['token'], use_context=True)
 dispatcher = updater.dispatcher
 
 dispatcher.add_handler(CommandHandler('start', start))
 dispatcher.add_handler(MessageHandler(Filters.attachment, process_attachment))
 dispatcher.add_error_handler(error_handler)
+dispatcher.add_handler(MessageHandler(Filters.all & ~Filters.attachment & ~Filters.status_update, other_messages))
 
 updater.start_polling()
 updater.idle()
