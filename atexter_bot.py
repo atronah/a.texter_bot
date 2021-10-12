@@ -12,6 +12,7 @@ from telegram.ext import Updater, CallbackContext, CommandHandler, MessageHandle
 settings: Dict[str, Dict[str, Any]] = {
     'access': {
         'token': None,
+        'user_list': []
     },
 }
 
@@ -34,23 +35,34 @@ else:
     with open('conf.yml', 'wt') as conf:
         yaml.dump(settings, conf)
 def start(update: Update, context: CallbackContext):
-    update.message.reply_text('Hello. Send me your pdf')
+    user_id = update.effective_user.id
+    if user_id not in settings['access']['user_list']:
+        update.message.reply_text(f'Your user ID is {user_id}')
+        other_messages(update, context)
+    else:
+        update.message.reply_text('Hello. Send me your pdf')
 
 
 def process_attachment(update: Update, context: CallbackContext):
-    attachment = update.message.document
+    user_id = update.effective_user.id
+    if user_id not in settings['access']['user_list']:
+        update.message.reply_text(f'Your user ID is {user_id}')
+        other_messages(update, context)
+    else:
+        attachment = update.message.document
 
-    downloaded_path = context.bot.getFile(attachment).download()
+        downloaded_path = context.bot.getFile(attachment).download()
 
-    page_content = []
-    pdf_pages = convert_from_path(downloaded_path, 100)
-    for page in pdf_pages:
-        page_content.append(str(pytesseract.image_to_string(page, 'rus')))
+        page_content = []
+        pdf_pages = convert_from_path(downloaded_path, 100)
+        for page in pdf_pages:
+            page_content.append(str(pytesseract.image_to_string(page, 'rus')))
 
-    content = '\n'.join(page_content)
-    update.message.reply_text(f'file_id={attachment.file_id}, downloaded_path={downloaded_path}\n'
-                              f'Content:\n'
-                              f'{content}')
+        content = '\n'.join(page_content)
+        update.message.reply_text(f'file_id={attachment.file_id}, downloaded_path={downloaded_path}\n\n'
+                                  f'Content:\n\n'
+                                  f'{content}')
+
 
 
 updater = Updater(token=settings['access']['token'], use_context=True)
