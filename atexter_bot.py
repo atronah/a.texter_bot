@@ -64,12 +64,20 @@ def process_attachment(update: Update, context: CallbackContext):
                                   f'{content}')
 
 
+def error_handler(update: Update, context: CallbackContext):
+    exception_info = str(context.error)
+    # import traceback
+    # exception_info += os.linesep
+    # exception_info += traceback.format_exc()
+    context.bot.sendMessage(update.effective_chat.id, f'Internal exception: {exception_info}')
+    raise context.error
 
 updater = Updater(token=settings['access']['token'], use_context=True)
 dispatcher = updater.dispatcher
 
 dispatcher.add_handler(CommandHandler('start', start))
 dispatcher.add_handler(MessageHandler(Filters.attachment, process_attachment))
+dispatcher.add_error_handler(error_handler)
 
 updater.start_polling()
 updater.idle()
