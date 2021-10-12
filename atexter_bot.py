@@ -18,7 +18,7 @@ def process_attachment(update: Update, context: CallbackContext):
     downloaded_path = context.bot.getFile(attachment).download()
 
     page_content = []
-    pdf_pages = convert_from_path('test.pdf', 100)
+    pdf_pages = convert_from_path(downloaded_path, 100)
     for page in pdf_pages:
         page_content.append(str(pytesseract.image_to_string(page, 'rus')))
 
