@@ -2,10 +2,15 @@
 
 import os
 import collections
+import logging
+import logging.config
 import yaml
 from typing import Dict, Any
+
+
 import pytesseract
 from pdf2image import convert_from_path
+
 from telegram import Update
 from telegram.ext import Updater, CallbackContext, CommandHandler, MessageHandler, Filters
 
@@ -14,6 +19,44 @@ settings: Dict[str, Dict[str, Any]] = {
         'token': None,
         'user_list': []
     },
+    'logging': {
+        'version': 1.0,
+        'formatters': {
+            'default': {
+                'format': '[{asctime}]{levelname: <5}({name}): {message}',
+                'style': '{'
+            }
+        },
+        'handlers': {
+            'general': {
+                'class': 'logging.handlers.WatchedFileHandler',
+                'level': 'INFO',
+                'filename': 'bot.log',
+                'formatter': 'default'
+            },
+            'stdout': {
+                'class': 'logging.StreamHandler',
+                'level': 'INFO',
+                'formatter': 'default'
+            },
+            'unknown_messages': {
+                'class': 'logging.handlers.WatchedFileHandler',
+                'level': 'INFO',
+                'filename': 'unknown_messages.log',
+                'formatter': 'default'
+            }
+        },
+        'loggers': {
+            'unknown_messages': {
+                'level': 'INFO',
+                'handlers': ['unknown_messages']
+            }
+        },
+        'root': {
+            'level': 'INFO',
+            'handlers': ['general']
+        },
+    }
 }
 
 
@@ -34,6 +77,11 @@ if os.path.exists('conf.yaml'):
 else:
     with open('conf.yml', 'wt') as conf:
         yaml.dump(settings, conf)
+
+
+logging.config.dictConfig(settings['logging'])
+
+
 def start(update: Update, context: CallbackContext):
     user_id = update.effective_user.id
     if user_id not in settings['access']['user_list']:
@@ -74,11 +122,14 @@ def error_handler(update: Update, context: CallbackContext):
 
 
 def other_messages(update: Update, context: CallbackContext):
+    logger = logging.getLogger('unknown_messages')
+    logger.info(f'{update.effective_user.id} {update.message.text}')
     update.message.reply_text("Unsupported or unauthorized. Logged.")
 
 
 updater = Updater(token=settings['access']['token'], use_context=True)
 dispatcher = updater.dispatcher
+
 
 dispatcher.add_handler(CommandHandler('start', start))
 dispatcher.add_handler(MessageHandler(Filters.attachment, process_attachment))
