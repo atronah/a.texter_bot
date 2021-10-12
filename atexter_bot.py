@@ -75,7 +75,7 @@ if os.path.exists('conf.yaml'):
     with open('conf.yaml', 'rt') as conf:
         recursive_update(settings, yaml.safe_load(conf))
 else:
-    with open('conf.yml', 'wt') as conf:
+    with open('conf.yaml', 'wt') as conf:
         yaml.dump(settings, conf)
 
 
