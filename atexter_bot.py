@@ -15,9 +15,8 @@ from telegram import Update
 from telegram.ext import Updater, CallbackContext, CommandHandler, MessageHandler, Filters
 
 settings: Dict[str, Dict[str, Any]] = {
-    'access': {
-        'token': None,
-        'user_list': []
+    'bot': {
+        'token': None
     },
     'tesseract': {
         'cmd': None
@@ -62,6 +61,43 @@ settings: Dict[str, Dict[str, Any]] = {
     }
 }
 
+access = {
+    'admins': {},
+    'users': {},
+    'unknown': {},
+    'rejected': {},
+}
+
+
+def has_access(user_id):
+    if user_id in access['admins'] or user_id in access['users']:
+        return True
+    return False
+
+
+def is_admin(user_id):
+    if user_id in access['admins']:
+        return True
+    return False
+
+
+def remove_user(user_id, list_name='users'):
+    while user_id in access[list_name]:
+        del access[list_name][user_id]
+
+
+def add_user(user_id, username, list_name='users'):
+    if user_id not in access[list_name]:
+        access[list_name][user_id] = username
+        if list_name == 'rejected':
+            remove_user(user_id, 'users')
+        elif list_name in ('admin', 'users'):
+            remove_user(user_id, 'unknown')
+            remove_user(user_id, 'rejected')
+        save('access.yaml', access)
+        return True
+    return False
+
 
 def recursive_update(target_dict, update_dict):
     if not isinstance(update_dict, dict):
@@ -74,12 +110,24 @@ def recursive_update(target_dict, update_dict):
     return target_dict
 
 
-if os.path.exists('conf.yaml'):
-    with open('conf.yaml', 'rt') as conf:
-        recursive_update(settings, yaml.safe_load(conf))
-else:
-    with open('conf.yaml', 'wt') as conf:
-        yaml.dump(settings, conf)
+def load(filename, data):
+    if os.path.exists(filename):
+        with open(filename, 'rt') as conf:
+            recursive_update(data, yaml.safe_load(conf))
+        return True
+    return False
+
+
+def save(filename, data):
+    with open(filename, 'wt') as conf:
+        yaml.dump(data, conf)
+
+
+if not load('conf.yaml', settings):
+    save('conf.yaml', settings)
+    
+if not load('access.yaml', access):
+    save('access.yaml', access)
 
 
 if settings['tesseract']['cmd']:
@@ -90,7 +138,7 @@ logging.config.dictConfig(settings['logging'])
 
 def start(update: Update, context: CallbackContext):
     user_id = update.effective_user.id
-    if user_id not in settings['access']['user_list']:
+    if user_id not in access['users']:
         update.message.reply_text(f'Your user ID is {user_id}')
         other_messages(update, context)
     else:
@@ -98,11 +146,8 @@ def start(update: Update, context: CallbackContext):
 
 
 def process_attachment(update: Update, context: CallbackContext):
-    user_id = update.effective_user.id
-    if user_id not in settings['access']['user_list']:
-        update.message.reply_text(f'Your user ID is {user_id}')
-        other_messages(update, context)
-    else:
+    user = update.effective_user
+    if has_access(user.id):
         attachment = update.message.document
 
         downloaded_path = context.bot.getFile(attachment).download()
@@ -118,6 +163,13 @@ def process_attachment(update: Update, context: CallbackContext):
                                               f'{part.strip()}')
 
         os.remove(downloaded_path)
+    else:
+        update.message.reply_text(f'Your user ID is {user.id}')
+        username = f'{user.username} ({user.name}, {user.full_name})'
+        if add_user(user.id, username, 'unknown'):
+            for admin_id in access['admins']:
+                context.bot.sendMessage(admin_id, f'New unknown user: {user.id}: {username}')
+        other_messages(update, context)
 
 
 def error_handler(update: Update, context: CallbackContext):
@@ -135,11 +187,52 @@ def other_messages(update: Update, context: CallbackContext):
     update.message.reply_text("Unsupported or unauthorized. Logged.")
 
 
-updater = Updater(token=settings['access']['token'], use_context=True)
+def unknown_list(update: Update, context: CallbackContext):
+    if is_admin(update.effective_user.id):
+        if access['unknown']:
+            update.message.reply_text('\n'.join([f'{k}: {v}' for k, v in access['unknown'].items()]))
+        else:
+            update.message.reply_text('No unknowns')
+    else:
+        update.message.reply_text("You're not an admin")
+
+
+def accept(update: Update, context: CallbackContext):
+    if is_admin(update.effective_user.id):
+        for user_id in map(int, context.args):
+            username = access['unknown'].get(user_id) or access['rejected'].get(user_id)
+            if add_user(user_id, username, 'users'):
+                update.message.reply_text(f'User {user_id} has been added to user list')
+            elif user_id in access['users']:
+                update.message.reply_text(f'User {user_id} is already in the user list')
+            else:
+                update.message.reply_text(f'Unknown problem')
+    else:
+        update.message.reply_text("You're not an admin")
+
+
+def reject(update: Update, context: CallbackContext):
+    if is_admin(update.effective_user.id):
+        for user_id in map(int, context.args):
+            username = access['unknown'].get(user_id) or access['users'].get(user_id)
+            if add_user(user_id, username, 'rejected'):
+                update.message.reply_text(f'User {user_id} has been added to rejected list')
+            elif user_id in access['users']:
+                update.message.reply_text(f'User {user_id} is already in the rejected list')
+            else:
+                update.message.reply_text(f'Unknown problem')
+    else:
+        update.message.reply_text("You're not an admin")
+
+
+updater = Updater(token=settings['bot']['token'], use_context=True)
 dispatcher = updater.dispatcher
 
 
 dispatcher.add_handler(CommandHandler('start', start))
+dispatcher.add_handler(CommandHandler('unknown_list', unknown_list))
+dispatcher.add_handler(CommandHandler('accept', accept))
+dispatcher.add_handler(CommandHandler('reject', reject))
 dispatcher.add_handler(MessageHandler(Filters.attachment, process_attachment))
 dispatcher.add_error_handler(error_handler)
 dispatcher.add_handler(MessageHandler(Filters.all & ~Filters.attachment & ~Filters.status_update, other_messages))
