@@ -109,10 +109,13 @@ def process_attachment(update: Update, context: CallbackContext):
 
         pdf_pages = convert_from_path(downloaded_path, 100)
         LENGTH_LIMIT = 4000
-        for idx, page in enumerate(pdf_pages):
+        for page_idx, page in enumerate(pdf_pages):
             page_content = str(pytesseract.image_to_string(page, 'rus'))
-            for part in [page_content[i:i+LENGTH_LIMIT] for i in range(0, len(page_content), LENGTH_LIMIT)]:
-                update.message.reply_text(f'Page {idx+1}\n\n{part}')
+            for part_idx, part in enumerate([page_content[i:i+LENGTH_LIMIT]
+                                             for i in range(0, len(page_content), LENGTH_LIMIT)]):
+                if part.strip() > '':
+                    update.message.reply_text(f'Page {page_idx + 1} part {part_idx + 1} \n\n'
+                                              f'{part.strip()}')
 
         os.remove(downloaded_path)
 
