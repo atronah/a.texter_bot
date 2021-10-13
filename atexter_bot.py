@@ -165,7 +165,10 @@ def process_attachment(update: Update, context: CallbackContext):
         os.remove(downloaded_path)
     else:
         update.message.reply_text(f'Your user ID is {user.id}')
-        add_user(user.id, f'{user.username} ({user.name}, {user.full_name})', 'unknown')
+        username = f'{user.username} ({user.name}, {user.full_name})'
+        if add_user(user.id, username, 'unknown'):
+            for admin_id in access['admins']:
+                context.bot.sendMessage(admin_id, f'New unknown user: {user.id}: {username}')
         other_messages(update, context)
 
 
