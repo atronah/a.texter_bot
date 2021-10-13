@@ -2,3 +2,4 @@ conf.yaml
 .idea
 *.log
 *.pdf
+venv/**
