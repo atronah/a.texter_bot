@@ -19,6 +19,9 @@ settings: Dict[str, Dict[str, Any]] = {
         'token': None,
         'user_list': []
     },
+    'tesseract': {
+        'cmd': None
+    },
     'logging': {
         'version': 1.0,
         'formatters': {
@@ -78,6 +81,9 @@ else:
     with open('conf.yaml', 'wt') as conf:
         yaml.dump(settings, conf)
 
+
+if settings['tesseract']['cmd']:
+    pytesseract.pytesseract.tesseract_cmd = settings['tesseract']['cmd']
 
 logging.config.dictConfig(settings['logging'])
 
