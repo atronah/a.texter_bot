@@ -15,9 +15,9 @@ from telegram import Update
 from telegram.ext import Updater, CallbackContext, CommandHandler, MessageHandler, Filters
 
 settings: Dict[str, Dict[str, Any]] = {
-    'access': {
         'token': None,
         'user_list': []
+    'bot': {
     },
     'tesseract': {
         'cmd': None
@@ -144,7 +144,7 @@ def other_messages(update: Update, context: CallbackContext):
     update.message.reply_text("Unsupported or unauthorized. Logged.")
 
 
-updater = Updater(token=settings['access']['token'], use_context=True)
+updater = Updater(token=settings['bot']['token'], use_context=True)
 dispatcher = updater.dispatcher
 
 
