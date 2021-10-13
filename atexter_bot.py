@@ -107,7 +107,6 @@ def process_attachment(update: Update, context: CallbackContext):
 
         downloaded_path = context.bot.getFile(attachment).download()
 
-        page_content = []
         pdf_pages = convert_from_path(downloaded_path, 100)
         LENGTH_LIMIT = 4000
         for idx, page in enumerate(pdf_pages):
