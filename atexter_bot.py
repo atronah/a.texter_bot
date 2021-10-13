@@ -211,6 +211,20 @@ def accept(update: Update, context: CallbackContext):
         update.message.reply_text("You're not an admin")
 
 
+def reject(update: Update, context: CallbackContext):
+    if is_admin(update.effective_user.id):
+        for user_id in map(int, context.args):
+            username = access['unknown'].get(user_id) or access['users'].get(user_id)
+            if add_user(user_id, username, 'rejected'):
+                update.message.reply_text(f'User {user_id} has been added to rejected list')
+            elif user_id in access['users']:
+                update.message.reply_text(f'User {user_id} is already in the rejected list')
+            else:
+                update.message.reply_text(f'Unknown problem')
+    else:
+        update.message.reply_text("You're not an admin")
+
+
 updater = Updater(token=settings['bot']['token'], use_context=True)
 dispatcher = updater.dispatcher
 
@@ -218,6 +232,7 @@ dispatcher = updater.dispatcher
 dispatcher.add_handler(CommandHandler('start', start))
 dispatcher.add_handler(CommandHandler('unknown_list', unknown_list))
 dispatcher.add_handler(CommandHandler('accept', accept))
+dispatcher.add_handler(CommandHandler('reject', reject))
 dispatcher.add_handler(MessageHandler(Filters.attachment, process_attachment))
 dispatcher.add_error_handler(error_handler)
 dispatcher.add_handler(MessageHandler(Filters.all & ~Filters.attachment & ~Filters.status_update, other_messages))
