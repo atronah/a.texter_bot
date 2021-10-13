@@ -94,6 +94,8 @@ def add_user(user_id, username, list_name='users'):
         elif list_name in ('admin', 'users'):
             remove_user(user_id, 'unknown')
             remove_user(user_id, 'rejected')
+        elif list_name in ('unknown'):
+            remove_user(user_id, 'rejected')
         save('access.yaml', access)
         return True
     return False
@@ -137,11 +139,20 @@ logging.config.dictConfig(settings['logging'])
 
 
 def start(update: Update, context: CallbackContext):
-    user_id = update.effective_user.id
-    if user_id not in access['users']:
-        update.message.reply_text(f'Your user ID is {user_id}')
-        other_messages(update, context)
+    user = update.effective_user
+    if has_access(user.id):
+        update.message.reply_text(f"Hello, my friend. Send me the pdf and I'll send you text from it.")
     else:
+        username = f'{user.username} ({user.name}, {user.full_name})'
+        if user.id in access['rejected']:
+            update.message.reply_text(f"Your user ID is {user.id} and my admins rejected access for you. I resent request. Wait, please.")
+        
+        if add_user(user.id, username, 'unknown'):
+        update.message.reply_text(f"Your user ID is {user.id} and you haven't had rights to use my services yet. I sent access request to my admins. Wait, please")
+        for admin_id in access['admins']:
+            context.bot.sendMessage(admin_id, f'New unknown user: {user.id}: {username}')
+    else:
+        
         update.message.reply_text('Hello. Send me your pdf')
 
 
@@ -164,11 +175,7 @@ def process_attachment(update: Update, context: CallbackContext):
         finally:
             os.remove(downloaded_path)
     else:
-        update.message.reply_text(f'Your user ID is {user.id}')
-        username = f'{user.username} ({user.name}, {user.full_name})'
-        if add_user(user.id, username, 'unknown'):
-            for admin_id in access['admins']:
-                context.bot.sendMessage(admin_id, f'New unknown user: {user.id}: {username}')
+        update.message.reply_text(f"You still haven't got access to use my service")
         other_messages(update, context)
 
 
