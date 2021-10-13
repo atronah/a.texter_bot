@@ -73,13 +73,22 @@ def recursive_update(target_dict, update_dict):
             target_dict[k] = v
     return target_dict
 
+def load(filename, data):
+    if os.path.exists(filename):
+        with open(filename, 'rt') as conf:
+            recursive_update(data, yaml.safe_load(conf))
+        return True
+    return False
 
-if os.path.exists('conf.yaml'):
-    with open('conf.yaml', 'rt') as conf:
-        recursive_update(settings, yaml.safe_load(conf))
-else:
-    with open('conf.yaml', 'wt') as conf:
-        yaml.dump(settings, conf)
+
+def save(filename, data):
+    with open(filename, 'wt') as conf:
+        yaml.dump(data, conf)
+
+
+if not load('conf.yaml', settings):
+    save('conf.yaml', settings)
+    
 
 
 if settings['tesseract']['cmd']:
