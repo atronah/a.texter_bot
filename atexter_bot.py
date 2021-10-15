@@ -145,12 +145,9 @@ def start(update: Update, context: CallbackContext):
             update.message.reply_text(f"Your user ID is {user.id} and my admins rejected access for you. I resent request. Wait, please.")
         
         if add_user(user.id, username, 'unknown'):
-        update.message.reply_text(f"Your user ID is {user.id} and you haven't had rights to use my services yet. I sent access request to my admins. Wait, please")
-        for admin_id in access['admins']:
-            context.bot.sendMessage(admin_id, f'New unknown user: {user.id}: {username}')
-    else:
-        
-        update.message.reply_text('Hello. Send me your pdf')
+            update.message.reply_text(f"Your user ID is {user.id} and you haven't had rights to use my services yet. I've sent access request to my admins. Wait, please")
+            for admin_id in access['admins']:
+                context.bot.sendMessage(admin_id, f'New unknown user: {user.id}: {username}')
 
 
 def process_attachment(update: Update, context: CallbackContext):
