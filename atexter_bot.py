@@ -89,13 +89,10 @@ def remove_user(user_id, list_name='users'):
 def add_user(user_id, username, list_name='users'):
     if user_id not in access[list_name]:
         access[list_name][user_id] = username
-        if list_name == 'rejected':
-            remove_user(user_id, 'users')
-        elif list_name in ('admin', 'users'):
-            remove_user(user_id, 'unknown')
-            remove_user(user_id, 'rejected')
-        elif list_name in ('unknown'):
-            remove_user(user_id, 'rejected')
+        other_lists = ['users', 'unknown', 'rejected']
+        other_lists.remove(list_name)
+        for other in other_lists:
+            remove_user(user_id, other)
         save('access.yaml', access)
         return True
     return False
