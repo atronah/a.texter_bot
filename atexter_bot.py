@@ -1,16 +1,60 @@
 #! /usr/bin/env python3
 
+import logging
+import logging.config
 import yaml
 from typing import Dict, Any
+
+
 import pytesseract
 from pdf2image import convert_from_path
+
 from telegram import Update
 from telegram.ext import Updater, CallbackContext, CommandHandler, MessageHandler, Filters
 
 settings: Dict[str, Dict[str, Any]] = {
     'access': {
         'token': None,
+        'user_list': []
     },
+    'logging': {
+        'version': 1.0,
+        'formatters': {
+            'default': {
+                'format': '[{asctime}]{levelname: <5}({name}): {message}',
+                'style': '{'
+            }
+        },
+        'handlers': {
+            'general': {
+                'class': 'logging.handlers.WatchedFileHandler',
+                'level': 'INFO',
+                'filename': 'bot.log',
+                'formatter': 'default'
+            },
+            'stdout': {
+                'class': 'logging.StreamHandler',
+                'level': 'INFO',
+                'formatter': 'default'
+            },
+            'unknown_messages': {
+                'class': 'logging.handlers.WatchedFileHandler',
+                'level': 'INFO',
+                'filename': 'unknown_messages.log',
+                'formatter': 'default'
+            }
+        },
+        'loggers': {
+            'unknown_messages': {
+                'level': 'INFO',
+                'handlers': ['unknown_messages']
+            }
+        },
+        'root': {
+            'level': 'INFO',
+            'handlers': ['general']
+        },
+    }
 }
 
 def recursive_update(target_dict, update_dict):
@@ -32,27 +76,33 @@ else:
         yaml.dump(settings, conf)
 
 
+logging.config.dictConfig(settings['logging'])
 
 
 def start(update: Update, context: CallbackContext):
-    update.message.reply_text('Hello. Send me your pdf')
-
-
-def process_attachment(update: Update, context: CallbackContext):
-    attachment = update.message.document
     user_id = update.effective_user_id
     if user_id not in settings['access']['user_list']:
         update.message.reply_text(f'Your user ID is {user_id}')
+        other_messages(update, context)
     else:
+        update.message.reply_text('Hello. Send me your pdf')
 
-    downloaded_path = context.bot.getFile(attachment).download()
 
-    page_content = []
-    pdf_pages = convert_from_path('test.pdf', 100)
-    for page in pdf_pages:
-        page_content.append(str(pytesseract.image_to_string(page, 'rus')))
+def process_attachment(update: Update, context: CallbackContext):
+    user_id = update.effective_user_id
+    if user_id not in settings['access']['user_list']:
+        update.message.reply_text(f'Your user ID is {user_id}')
+        other_messages(update, context)
+    else:
+        attachment = update.message.document
 
-    update.message.reply_text(f'file_id={attachment.file_id}, downloaded_path={downloaded_path}\n'
+        downloaded_path = context.bot.getFile(attachment).download()
+
+        page_content = []
+        pdf_pages = convert_from_path('test.pdf', 100)
+        for page in pdf_pages:
+            page_content.append(str(pytesseract.image_to_string(page, 'rus')))
+
         content = '\n'.join(page_content)
         update.message.reply_text(f'file_id={attachment.file_id}, downloaded_path={downloaded_path}\n\n'
                               f'Content:\n\n'
