@@ -1,11 +1,37 @@
 #! /usr/bin/env python3
 
+import yaml
+from typing import Dict, Any
 import pytesseract
 from pdf2image import convert_from_path
 from telegram import Update
 from telegram.ext import Updater, CallbackContext, CommandHandler, MessageHandler, Filters
 
-TOKEN = 
+settings: Dict[str, Dict[str, Any]] = {
+    'access': {
+        'token': None,
+    },
+}
+
+def recursive_update(target_dict, update_dict):
+    if not isinstance(update_dict, dict):
+        return target_dict
+    for k, v in update_dict.items():
+        if isinstance(v, collections.abc.Mapping):
+            target_dict[k] = recursive_update(target_dict.get(k, {}), v)
+        else:
+            target_dict[k] = v
+    return target_dict
+
+
+if os.path.exists('conf.yml'):
+    with open('conf.yml', 'rt') as conf:
+        recursive_update(settings, yaml.safe_load(conf))
+else:
+    with open('conf.yml', 'wt') as conf:
+        yaml.dump(settings, conf)
+
+
 
 
 def start(update: Update, context: CallbackContext):
@@ -14,6 +40,10 @@ def start(update: Update, context: CallbackContext):
 
 def process_attachment(update: Update, context: CallbackContext):
     attachment = update.message.document
+    user_id = update.effective_user_id
+    if user_id not in settings['access']['user_list']:
+        update.message.reply_text(f'Your user ID is {user_id}')
+    else:
 
     downloaded_path = context.bot.getFile(attachment).download()
 
@@ -22,17 +52,36 @@ def process_attachment(update: Update, context: CallbackContext):
     for page in pdf_pages:
         page_content.append(str(pytesseract.image_to_string(page, 'rus')))
 
-    content = '\n'.join(page_content)
     update.message.reply_text(f'file_id={attachment.file_id}, downloaded_path={downloaded_path}\n'
-                              f'Content:\n'
+        content = '\n'.join(page_content)
+        update.message.reply_text(f'file_id={attachment.file_id}, downloaded_path={downloaded_path}\n\n'
+                              f'Content:\n\n'
                               f'{content}')
 
 
-updater = Updater(token=TOKEN, use_context=True)
+def error_handler(update: Update, context: CallbackContext):
+    exception_info = str(context.error)
+    # import traceback
+    # exception_info += os.linesep
+    # exception_info += traceback.format_exc()
+    context.bot.sendMessage(update.effective_chat.id, f'Internal exception: {exception_info}')
+    raise context.error
+    
+
+def other_messages(update: Update, context: CallbackContext):
+    logger = logging.getLogger('unknown_messages')
+    logger.info(f'{update.effective_user.id} {update.message.text}')
+    update.message.reply_text("Unsupported or unauthorized. Logged.")
+
+
+updater = Updater(token=settings['access']['token'], use_context=True)
 dispatcher = updater.dispatcher
+
 
 dispatcher.add_handler(CommandHandler('start', start))
 dispatcher.add_handler(MessageHandler(Filters.attachment, process_attachment))
+dispatcher.add_error_handler(error_handler)
+dispatcher.add_handler(MessageHandler(Filters.all & ~Filters.attachment & ~Filters.status_update, other_messages))
 
 updater.start_polling()
 updater.idle()
